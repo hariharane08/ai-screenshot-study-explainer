@@ -1,7 +1,5 @@
 # AI Screenshot Study Explainer
-
-AI tool that converts screenshots of notes, diagrams, or textbook pages
-into clear study explanations using Amazon Nova.
+This tool helps students quickly understand screenshots of notes, diagrams, or textbook pages. It generates structured explanations, study notes, and quiz questions using Amazon Nova AI.
 
 ## Features
 - Screenshot analysis
