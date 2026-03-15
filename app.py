@@ -1,9 +1,9 @@
-```python
 import streamlit as st
 import boto3
 from PIL import Image
 import io
 import base64
+from botocore.exceptions import NoCredentialsError
 
 # ---------------- PAGE CONFIG ----------------
 
@@ -14,7 +14,14 @@ st.set_page_config(
 )
 
 st.title("📸 AI Screenshot Study Explainer")
+st.caption("Hackathon Project • AI-powered screenshot study assistant using Amazon Nova")
+
 st.write("Upload a screenshot and Nova AI will explain it.")
+
+# ---------------- SESSION STATE ----------------
+
+if "ai_text" not in st.session_state:
+    st.session_state.ai_text = ""
 
 # ---------------- SIDEBAR ----------------
 
@@ -30,6 +37,7 @@ st.sidebar.write("""
 """)
 
 st.sidebar.write("### Supported Images")
+
 st.sidebar.write("""
 ✔ Notes  
 ✔ Diagrams  
@@ -48,10 +56,13 @@ difficulty = st.selectbox(
 
 # ---------------- AWS CLIENT ----------------
 
-client = boto3.client(
-    "bedrock-runtime",
-    region_name="us-east-1"
-)
+try:
+    client = boto3.client(
+        "bedrock-runtime",
+        region_name="us-east-1"
+    )
+except Exception:
+    client = None
 
 MODEL_ID = "global.amazon.nova-2-lite-v1:0"
 
@@ -61,8 +72,6 @@ uploaded_file = st.file_uploader(
     "Upload Screenshot",
     type=["png", "jpg", "jpeg"]
 )
-
-ai_text = ""
 
 if uploaded_file:
 
@@ -84,19 +93,21 @@ if uploaded_file:
 
             with st.spinner("Nova AI is analyzing..."):
 
-                message = [{
-                    "role": "user",
-                    "content": [
-                        {
-                            "image": {
-                                "format": "png",
-                                "source": {
-                                    "bytes": img_base64
+                try:
+
+                    message = [{
+                        "role": "user",
+                        "content": [
+                            {
+                                "image": {
+                                    "format": "png",
+                                    "source": {
+                                        "bytes": img_base64
+                                    }
                                 }
-                            }
-                        },
-                        {
-                            "text": f"""
+                            },
+                            {
+                                "text": f"""
 Analyze this screenshot and convert it into clear study material.
 
 Difficulty Level: {difficulty}
@@ -110,41 +121,53 @@ Give the output in this format:
 
 Explain clearly for the selected difficulty level.
 """
+                            }
+                        ]
+                    }]
+
+                    response = client.converse(
+                        modelId=MODEL_ID,
+                        messages=message,
+                        inferenceConfig={
+                            "maxTokens": 800,
+                            "temperature": 0.5
                         }
-                    ]
-                }]
+                    )
 
-                response = client.converse(
-                    modelId=MODEL_ID,
-                    messages=message,
-                    inferenceConfig={
-                        "maxTokens": 800,
-                        "temperature": 0.5
-                    }
-                )
+                    st.session_state.ai_text = response["output"]["message"]["content"][0]["text"]
 
-                ai_text = response["output"]["message"]["content"][0]["text"]
+                    st.success("Analysis Complete!")
 
-                st.success("Analysis Complete!")
+                except NoCredentialsError:
 
-                tab1, tab2 = st.tabs(["Explanation", "Study Notes"])
+                    st.error("⚠ AWS credentials not configured yet. Run 'aws configure' to connect Nova AI.")
 
-                with tab1:
-                    st.write(ai_text)
+                except Exception as e:
 
-                with tab2:
-                    st.markdown("### Key Points")
-                    st.write(ai_text)
+                    st.error("⚠ AI service not available yet. Please configure AWS credentials or try again later.")
 
-                st.download_button(
-                    "Download Notes",
-                    ai_text,
-                    file_name="study_notes.txt"
-                )
+# ---------------- OUTPUT ----------------
+
+if st.session_state.ai_text:
+
+    tab1, tab2 = st.tabs(["Explanation", "Study Notes"])
+
+    with tab1:
+        st.write(st.session_state.ai_text)
+
+    with tab2:
+        st.markdown("### Key Points")
+        st.write(st.session_state.ai_text)
+
+    st.download_button(
+        "Download Notes",
+        st.session_state.ai_text,
+        file_name="study_notes.txt"
+    )
 
 # ---------------- AI TUTOR ----------------
 
-if ai_text:
+if st.session_state.ai_text:
 
     st.divider()
 
@@ -158,33 +181,42 @@ if ai_text:
 
         with st.spinner("Nova AI is thinking..."):
 
-            followup_message = [{
-                "role": "user",
-                "content": [
-                    {
-                        "text": f"""
+            try:
+
+                followup_message = [{
+                    "role": "user",
+                    "content": [
+                        {
+                            "text": f"""
 A student uploaded a screenshot and received the explanation below:
 
-{ai_text}
+{st.session_state.ai_text}
 
 Now answer this follow-up question clearly:
 
 {question}
 """
+                        }
+                    ]
+                }]
+
+                response = client.converse(
+                    modelId=MODEL_ID,
+                    messages=followup_message,
+                    inferenceConfig={
+                        "maxTokens": 500,
+                        "temperature": 0.5
                     }
-                ]
-            }]
+                )
 
-            response = client.converse(
-                modelId=MODEL_ID,
-                messages=followup_message,
-                inferenceConfig={
-                    "maxTokens": 500,
-                    "temperature": 0.5
-                }
-            )
+                answer = response["output"]["message"]["content"][0]["text"]
 
-            answer = response["output"]["message"]["content"][0]["text"]
+                st.write(answer)
 
-            st.write(answer)
-```
+            except NoCredentialsError:
+
+                st.error("⚠ AWS credentials not configured yet.")
+
+            except Exception:
+
+                st.error("⚠ AI tutor unavailable. Configure AWS credentials first.")
