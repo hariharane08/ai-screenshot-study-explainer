@@ -1,20 +1,23 @@
 # AI Screenshot Study Explainer
 
-This project analyzes screenshots of study material and converts them into:
+AI tool that converts screenshots of notes, diagrams, or textbook pages
+into clear study explanations using Amazon Nova.
 
-- Simple explanations
-- Key points
+## Features
+- Screenshot analysis
+- Difficulty level explanations
+- Key study notes
 - Quiz questions
-- Interactive AI tutor
+- AI tutor follow-up questions
 
 ## Tech Stack
+- Python
+- Streamlit
+- Amazon Bedrock
+- Amazon Nova AI
 
-Python  
-Streamlit  
-Amazon Bedrock  
-Amazon Nova Lite
+## How to Run
 
-## Run the project
-
-pip install -r requirements.txt
-streamlit run hari.py
+pip install -r requirements.txt  
+aws configure  
+streamlit run app.py
