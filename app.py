@@ -1,0 +1,190 @@
+```python
+import streamlit as st
+import boto3
+from PIL import Image
+import io
+import base64
+
+# ---------------- PAGE CONFIG ----------------
+
+st.set_page_config(
+    page_title="AI Screenshot Explainer",
+    page_icon="📸",
+    layout="wide"
+)
+
+st.title("📸 AI Screenshot Study Explainer")
+st.write("Upload a screenshot and Nova AI will explain it.")
+
+# ---------------- SIDEBAR ----------------
+
+st.sidebar.title("📚 AI Study Explainer")
+
+st.sidebar.write("""
+### How to Use
+1. Upload a screenshot
+2. Select explanation difficulty
+3. Click **Analyze Screenshot**
+4. Get explanation and study notes
+5. Ask follow-up questions
+""")
+
+st.sidebar.write("### Supported Images")
+st.sidebar.write("""
+✔ Notes  
+✔ Diagrams  
+✔ Code screenshots  
+✔ Textbook pages  
+""")
+
+st.sidebar.info("Powered by Amazon Nova AI")
+
+# ---------------- DIFFICULTY SELECTOR ----------------
+
+difficulty = st.selectbox(
+    "Select Explanation Difficulty",
+    ["School Student", "College Student", "Beginner Friendly"]
+)
+
+# ---------------- AWS CLIENT ----------------
+
+client = boto3.client(
+    "bedrock-runtime",
+    region_name="us-east-1"
+)
+
+MODEL_ID = "global.amazon.nova-2-lite-v1:0"
+
+# ---------------- FILE UPLOAD ----------------
+
+uploaded_file = st.file_uploader(
+    "Upload Screenshot",
+    type=["png", "jpg", "jpeg"]
+)
+
+ai_text = ""
+
+if uploaded_file:
+
+    image = Image.open(uploaded_file)
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.image(image, caption="Uploaded Screenshot")
+
+    # Convert image to base64
+    buffered = io.BytesIO()
+    image.save(buffered, format="PNG")
+    img_base64 = base64.b64encode(buffered.getvalue()).decode()
+
+    with col2:
+
+        if st.button("Analyze Screenshot"):
+
+            with st.spinner("Nova AI is analyzing..."):
+
+                message = [{
+                    "role": "user",
+                    "content": [
+                        {
+                            "image": {
+                                "format": "png",
+                                "source": {
+                                    "bytes": img_base64
+                                }
+                            }
+                        },
+                        {
+                            "text": f"""
+Analyze this screenshot and convert it into clear study material.
+
+Difficulty Level: {difficulty}
+
+Give the output in this format:
+
+1. Simple Explanation
+2. Key Points
+3. Important Concepts
+4. 3 Quiz Questions for revision
+
+Explain clearly for the selected difficulty level.
+"""
+                        }
+                    ]
+                }]
+
+                response = client.converse(
+                    modelId=MODEL_ID,
+                    messages=message,
+                    inferenceConfig={
+                        "maxTokens": 800,
+                        "temperature": 0.5
+                    }
+                )
+
+                ai_text = response["output"]["message"]["content"][0]["text"]
+
+                st.success("Analysis Complete!")
+
+                tab1, tab2 = st.tabs(["Explanation", "Study Notes"])
+
+                with tab1:
+                    st.write(ai_text)
+
+                with tab2:
+                    st.markdown("### Key Points")
+                    st.write(ai_text)
+
+                st.download_button(
+                    "Download Notes",
+                    ai_text,
+                    file_name="study_notes.txt"
+                )
+
+# ---------------- AI TUTOR ----------------
+
+if ai_text:
+
+    st.divider()
+
+    st.subheader("🤖 AI Tutor")
+
+    question = st.text_input(
+        "Ask a follow-up question about the screenshot"
+    )
+
+    if st.button("Ask AI") and question:
+
+        with st.spinner("Nova AI is thinking..."):
+
+            followup_message = [{
+                "role": "user",
+                "content": [
+                    {
+                        "text": f"""
+A student uploaded a screenshot and received the explanation below:
+
+{ai_text}
+
+Now answer this follow-up question clearly:
+
+{question}
+"""
+                    }
+                ]
+            }]
+
+            response = client.converse(
+                modelId=MODEL_ID,
+                messages=followup_message,
+                inferenceConfig={
+                    "maxTokens": 500,
+                    "temperature": 0.5
+                }
+            )
+
+            answer = response["output"]["message"]["content"][0]["text"]
+
+            st.write(answer)
+```
