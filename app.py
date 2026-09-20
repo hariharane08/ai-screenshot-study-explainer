@@ -11,7 +11,7 @@ MODEL_ID = "amazon.nova-lite-v1:0"
 
 st.set_page_config(page_title="AI Screenshot Study Explainer", layout="wide")
 
-st.title("📚 AI Screenshot Study Explainer")
+st.title(" AI Screenshot Study Explainer")
 
 st.sidebar.header("Settings")
 
@@ -61,7 +61,7 @@ if uploaded_file:
             result_text = response["output"]["message"]["content"][0]["text"]
 
         except NoCredentialsError:
-            result_text = "⚠️ AWS credentials not configured yet. Please run 'aws configure'."
+            result_text = "AWS credentials not configured yet. Please run 'aws configure'."
 
         except Exception as e:
             result_text = f"Error: {str(e)}"
